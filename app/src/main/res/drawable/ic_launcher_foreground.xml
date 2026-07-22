@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Centered even smaller note icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,36h16l4,4v28c0,2.2 -1.8,4 -4,4H44c-2.2,0 -4,-1.8 -4,-4V40C40,37.8 41.8,36 44,36z" />
+    <!-- Folded corner shadow -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.1"
+        android:pathData="M60,36l4,4h-4z" />
+    <!-- Internal note lines -->
+    <path
+        android:fillColor="#000000"
+        android:fillAlpha="0.2"
+        android:pathData="M42,48h20v2H42zM42,54h20v2H42zM42,60h12v2H42z" />
+</vector>
