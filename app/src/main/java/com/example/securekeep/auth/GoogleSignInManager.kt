@@ -1,16 +1,15 @@
 package com.example.securekeep.auth
 
-import androidx.fragment.app.FragmentActivity
+import android.content.Context
+import androidx.core.content.edit
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
+import androidx.fragment.app.FragmentActivity
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
-import android.util.Log
-import android.content.Context
-import androidx.core.content.edit
 
 class GoogleSignInManager(
     private val activity: FragmentActivity
@@ -23,10 +22,8 @@ class GoogleSignInManager(
 
     suspend fun signIn(): Result<GoogleSignInResult> {
 
-        Log.d("DriveAuth", "Entered GoogleSignInManager.signIn()")
 
         return try {
-            Log.d("DriveAuth", "Creating GoogleIdOption")
 
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
@@ -38,12 +35,10 @@ class GoogleSignInManager(
                 .addCredentialOption(googleIdOption)
                 .build()
 
-            Log.d("DriveAuth", "Launching CredentialManager")
             val response = credentialManager.getCredential(
                 context = activity,
                 request = request
             )
-            Log.d("DriveAuth", "CredentialManager returned")
 
             val credential = response.credential
 
@@ -87,7 +82,6 @@ class GoogleSignInManager(
 
         } catch (e: Exception) {
 
-            Log.e("DriveAuth", "Exception during sign in", e)
 
             Result.failure(e)
         }

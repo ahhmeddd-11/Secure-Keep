@@ -2,6 +2,7 @@ package com.example.securekeep.sync.crypto
 
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import com.example.securekeep.sync.crypto.BackupCrypto.encrypt
 import java.security.KeyStore
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator

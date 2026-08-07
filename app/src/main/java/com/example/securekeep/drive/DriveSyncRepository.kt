@@ -8,7 +8,6 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.securekeep.data.local.Note
-import com.example.securekeep.data.local.SyncState
 import com.example.securekeep.sync.SyncEngine
 import com.example.securekeep.sync.crypto.BackupCrypto
 import com.example.securekeep.sync.model.BackupFile

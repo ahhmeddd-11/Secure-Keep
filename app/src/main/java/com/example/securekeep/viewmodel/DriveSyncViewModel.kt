@@ -1,10 +1,8 @@
 package com.example.securekeep.viewmodel
 
 import android.app.PendingIntent
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.securekeep.data.local.Note
 import com.example.securekeep.drive.DriveAuthorizationNeededException
 import com.example.securekeep.drive.DriveSyncRepository
 import com.example.securekeep.repository.NotesRepository
@@ -61,15 +59,12 @@ class DriveSyncViewModel(
                 val allNotes = withContext(Dispatchers.IO) { notesRepository.getAllNotes() }
                 withContext(Dispatchers.IO) { syncRepository.backup(allNotes) }
                 _syncStatus.value = SyncStatus.Success("Backup completed successfully")
-                Log.d("DriveSyncVM", "Backup succeeded")
             } catch (e: DriveAuthorizationNeededException) {
                 pendingOperation = PendingOperation.BACKUP
                 _pendingAuthIntent.value = e.pendingIntent
                 _syncStatus.value = SyncStatus.Idle
-                Log.d("DriveSyncVM", "Drive auth required for backup")
             } catch (e: Exception) {
                 _syncStatus.value = SyncStatus.Failed(friendlyError(e))
-                Log.e("DriveSyncVM", "Backup failed", e)
             }
         }
     }
@@ -92,15 +87,12 @@ class DriveSyncViewModel(
 
                 withContext(Dispatchers.IO) { notesRepository.upsertNotes(mergedNotes) }
                 _syncStatus.value = SyncStatus.Success("${mergedNotes.size} notes restored")
-                Log.d("DriveSyncVM", "Restore succeeded — ${mergedNotes.size} notes")
             } catch (e: DriveAuthorizationNeededException) {
                 pendingOperation = PendingOperation.RESTORE
                 _pendingAuthIntent.value = e.pendingIntent
                 _syncStatus.value = SyncStatus.Idle
-                Log.d("DriveSyncVM", "Drive auth required for restore")
             } catch (e: Exception) {
                 _syncStatus.value = SyncStatus.Failed(friendlyError(e))
-                Log.e("DriveSyncVM", "Restore failed", e)
             }
         }
     }

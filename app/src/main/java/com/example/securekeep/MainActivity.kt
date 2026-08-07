@@ -1,6 +1,8 @@
 package com.example.securekeep
 
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -24,8 +26,6 @@ import com.example.securekeep.viewmodel.DriveSyncViewModelFactory
 import com.example.securekeep.viewmodel.NotesViewModel
 import com.example.securekeep.viewmodel.NotesViewModelFactory
 import com.google.gson.Gson
-import android.os.Handler
-import android.os.Looper
 
 class MainActivity : FragmentActivity() {
 

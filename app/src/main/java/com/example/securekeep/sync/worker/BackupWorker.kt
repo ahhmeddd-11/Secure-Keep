@@ -1,7 +1,6 @@
 package com.example.securekeep.sync.worker
 
 import android.content.Context
-import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.securekeep.data.local.DatabaseProvider
@@ -37,7 +36,6 @@ class BackupWorker(
             // Check if a user account is linked
             val accountEmail = syncRepository.savedAccountEmail.first()
             if (accountEmail.isNullOrBlank()) {
-                Log.d("BackupWorker", "No account linked — skipping backup")
                 return Result.success()
             }
 
@@ -47,20 +45,16 @@ class BackupWorker(
             // Skip backup if nothing has changed
             val lastBackupTime = syncRepository.lastBackupTime.first() ?: 0L
             if (!syncRepository.hasChangedSinceLastBackup(allNotes, lastBackupTime)) {
-                Log.d("BackupWorker", "No changes since last backup — skipping")
                 return Result.success()
             }
 
             syncRepository.backup(allNotes)
-            Log.d("BackupWorker", "Backup completed successfully")
             Result.success()
 
         } catch (e: DriveAuthorizationNeededException) {
             // User must interact to re-authorize — don't retry automatically
-            Log.w("BackupWorker", "Drive auth required — cannot auto-backup")
             Result.failure()
         } catch (e: Exception) {
-            Log.e("BackupWorker", "Backup failed — will retry", e)
             Result.retry()
         }
     }
