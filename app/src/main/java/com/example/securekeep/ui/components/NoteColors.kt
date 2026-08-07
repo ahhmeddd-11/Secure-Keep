@@ -15,10 +15,4 @@ val NoteColors = listOf(
     Color(0xFF004D40)  // Dark Jungle Green
 )
 
-fun getContrastingTextColor(backgroundColor: Color, isDarkTheme: Boolean): Color {
-    val argb = backgroundColor.toArgb()
-    val luminance = ColorUtils.calculateLuminance(argb)
-    // For dark aesthetic colors, we usually want white text. 
-    // If luminance is high (unlikely in this palette), use black.
-    return if (luminance > 0.4) Color.Black else Color.White
-}
+

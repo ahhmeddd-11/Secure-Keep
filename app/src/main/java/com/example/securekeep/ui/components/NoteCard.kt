@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.securekeep.data.local.Note
+import com.example.securekeep.ui.utils.getContrastingTextColor
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

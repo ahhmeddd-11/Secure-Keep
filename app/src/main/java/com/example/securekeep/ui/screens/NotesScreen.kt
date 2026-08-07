@@ -66,6 +66,7 @@ import com.example.securekeep.ui.components.NoteCard
 import com.example.securekeep.ui.components.NotesSearchBar
 import com.example.securekeep.viewmodel.NotesViewModel
 import kotlinx.coroutines.launch
+import com.example.securekeep.ui.components.StatusBarAppearance
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +77,9 @@ fun NotesScreen(
     onSettingsClick: () -> Unit,
     onDeletedNotesClick: () -> Unit
 ) {
+    StatusBarAppearance(
+        backgroundColor = MaterialTheme.colorScheme.background
+    )
     val notes by viewModel.allNotes.collectAsState(initial = emptyList())
     val notePin by viewModel.notePin.collectAsState()
     val useBiometricNote by viewModel.useBiometricNote.collectAsState()

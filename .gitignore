@@ -7,6 +7,7 @@ build/
 local.properties
 
 # Android Studio
+.idea/
 .idea/caches/
 .idea/libraries/
 .idea/modules.xml

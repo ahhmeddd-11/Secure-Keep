@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,7 +49,6 @@ class MainActivity : FragmentActivity() {
 //            android.view.WindowManager.LayoutParams.FLAG_SECURE
 //        )
 
-        enableEdgeToEdge()
 
         val dao = DatabaseProvider.provideDatabase(this).noteDao()
         val repository = NotesRepository(dao)

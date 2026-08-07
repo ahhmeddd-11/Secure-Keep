@@ -98,11 +98,13 @@ import coil.compose.AsyncImage
 import com.example.securekeep.data.local.Note
 import com.example.securekeep.ui.components.NoteColors
 import com.example.securekeep.ui.components.SingleClickBackButton
-import com.example.securekeep.ui.components.getContrastingTextColor
+//import com.example.securekeep.ui.components.getContrastingTextColor
 import com.example.securekeep.viewmodel.NotesViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import android.graphics.Color as AndroidColor
+import com.example.securekeep.ui.components.StatusBarAppearance
+import com.example.securekeep.ui.utils.getContrastingTextColor
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -114,7 +116,7 @@ fun AddEditNoteScreen(
 ) {
     val isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
     var currentNoteId by remember { mutableStateOf(noteId ?: -1) }
-    
+
     var title by remember { mutableStateOf("") }
     var contentValue by remember { mutableStateOf(TextFieldValue("")) }
     var selectedColor by remember { mutableStateOf(NoteColors[0]) }
@@ -122,13 +124,13 @@ fun AddEditNoteScreen(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var isLocked by remember { mutableStateOf(false) }
     var showColorPicker by remember { mutableStateOf(false) }
-    
+
     var initialNote by remember { mutableStateOf<Note?>(null) }
     var lastEditedTimestamp by remember { mutableStateOf<Long?>(null) }
     var isInitialLoad by remember { mutableStateOf(true) }
     val scrollState = rememberScrollState()
     val coroutineScope = rememberCoroutineScope()
-    
+
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var hasScrolledToSearch by remember { mutableStateOf(false) }
@@ -151,7 +153,7 @@ fun AddEditNoteScreen(
                 isPinned = it.isPinned
                 isLocked = it.isLocked
                 imageUri = it.imageUri?.let { uri -> Uri.parse(uri) }
-                
+
                 if (!searchQuery.isNullOrBlank()) {
                     val idx = it.content.indexOf(searchQuery, ignoreCase = true)
                     if (idx >= 0) {
@@ -170,8 +172,8 @@ fun AddEditNoteScreen(
     // AUTO-SAVE LOGIC
     LaunchedEffect(title, contentValue.text, selectedColor, isPinned, imageUri, isLocked) {
         if (!isInitialLoad) {
-            val isEdited = initialNote == null || 
-                title != initialNote!!.title || 
+            val isEdited = initialNote == null ||
+                title != initialNote!!.title ||
                 contentValue.text != initialNote!!.content ||
                 selectedColor.toArgb().toLong() != initialNote!!.color ||
                 isPinned != initialNote!!.isPinned ||
@@ -186,7 +188,7 @@ fun AddEditNoteScreen(
                 kotlinx.coroutines.delay(500) // Debounce auto-save to prevent race conditions
                 val newTimestamp = System.currentTimeMillis()
                 lastEditedTimestamp = newTimestamp
-                
+
                 val note = Note(
                     id = if (currentNoteId != -1) currentNoteId else 0,
                     title = title,
@@ -199,7 +201,7 @@ fun AddEditNoteScreen(
                     imageUri = imageUri?.toString(),
                     timestamp = newTimestamp
                 )
-                
+
                 coroutineScope.launch {
                     val newId = viewModel.insert(note)
                     if (currentNoteId == -1) currentNoteId = newId
@@ -241,6 +243,10 @@ fun AddEditNoteScreen(
     val backgroundColor = selectedColor
     val textColor = getContrastingTextColor(selectedColor, isDarkTheme)
     val themeBasedIconColor = if (isDarkTheme) Color.White else Color.Black
+
+    StatusBarAppearance(
+        backgroundColor = backgroundColor
+    )
 
     Scaffold(
         modifier = Modifier.fillMaxSize().imePadding(), // Move whole scaffold up
@@ -288,9 +294,9 @@ fun AddEditNoteScreen(
                             Icon(Icons.Outlined.Image, contentDescription = "Add Image", tint = themeBasedIconColor)
                         }
                     }
-                    
+
                     Spacer(modifier = Modifier.width(8.dp))
-                    
+
                     LazyRow(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -325,7 +331,7 @@ fun AddEditNoteScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                lastEditedTimestamp?.let { 
+                lastEditedTimestamp?.let {
                     Text(
                         text = "Edited ${java.text.SimpleDateFormat("dd-MM-yyyy HH:mm", java.util.Locale.getDefault()).format(java.util.Date(it))}",
                         style = MaterialTheme.typography.labelSmall,
@@ -370,16 +376,16 @@ fun AddEditNoteScreen(
             TextField(
                 value = title,
                 onValueChange = { title = it },
-                placeholder = { 
+                placeholder = {
                     Text(
-                        "Title", 
-                        style = MaterialTheme.typography.headlineMedium, 
+                        "Title",
+                        style = MaterialTheme.typography.headlineMedium,
                         color = textColor.copy(alpha = 0.5f)
-                    ) 
+                    )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 textStyle = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Medium, 
+                    fontWeight = FontWeight.Medium,
                     color = textColor
                 ),
                 colors = TextFieldDefaults.colors(
@@ -390,7 +396,7 @@ fun AddEditNoteScreen(
                     cursorColor = textColor
                 )
             )
-            
+
             HorizontalDivider(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 color = textColor.copy(alpha = 0.2f)
@@ -436,15 +442,15 @@ fun AddEditNoteScreen(
                 decorationBox = { innerTextField ->
                     if (contentValue.text.isEmpty()) {
                         Text(
-                            "Note", 
-                            style = MaterialTheme.typography.bodyLarge, 
+                            "Note",
+                            style = MaterialTheme.typography.bodyLarge,
                             color = textColor.copy(alpha = 0.5f)
                         )
                     }
                     innerTextField()
                 }
             )
-            
+
             // Ensures we can always scroll past the keyboard
             Spacer(modifier = Modifier.height(150.dp))
         }
@@ -454,7 +460,7 @@ fun AddEditNoteScreen(
         GoogleColorPickerDialog(
             initialColor = selectedColor,
             onDismiss = { showColorPicker = false },
-            onColorSelected = { 
+            onColorSelected = {
                 selectedColor = it
                 showColorPicker = false
             }
@@ -486,7 +492,7 @@ fun GoogleColorPickerDialog(
         Surface(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             shape = RoundedCornerShape(12.dp),
-            color = Color(0xFF202124), 
+            color = Color(0xFF202124),
             contentColor = Color.White
         ) {
             Column(modifier = Modifier.padding(16.dp)) {

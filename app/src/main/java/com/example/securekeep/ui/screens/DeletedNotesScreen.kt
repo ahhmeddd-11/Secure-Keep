@@ -8,9 +8,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Restore
@@ -86,22 +87,34 @@ fun DeletedNotesScreen(
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(16.dp)
                 )
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(160.dp),
-                    modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp)
+                LazyVerticalStaggeredGrid(
+                    columns = StaggeredGridCells.Adaptive(160.dp),
+
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp),
+
+                    verticalItemSpacing = 8.dp,
+
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+
                     items(deletedNotes) { note ->
+
                         NoteCard(
                             note = note,
+
                             onClick = {
                                 selectedNote = note
                                 showMenu = true
                             },
+
                             onLongClick = {
                                 selectedNote = note
                                 showMenu = true
                             }
                         )
+
                     }
                 }
             }
