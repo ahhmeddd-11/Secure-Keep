@@ -46,8 +46,18 @@ class SecurityManager(private val context: Context) {
     suspend fun setDarkMode(enabled: Boolean) {
         context.dataStore.edit { it[IS_DARK_MODE] = enabled }
     }
-    
+
     suspend fun clearNotePin() {
-        context.dataStore.edit { it.remove(NOTE_PIN) }
+        context.dataStore.edit {
+            it.remove(NOTE_PIN)
+            it[USE_BIOMETRIC_NOTE] = false
+        }
+    }
+
+    suspend fun clearAppPin() {
+        context.dataStore.edit {
+            it.remove(APP_PIN)
+            it[USE_BIOMETRIC_APP] = false
+        }
     }
 }

@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -67,6 +68,11 @@ import com.example.securekeep.ui.components.NotesSearchBar
 import com.example.securekeep.viewmodel.NotesViewModel
 import kotlinx.coroutines.launch
 import com.example.securekeep.ui.components.StatusBarAppearance
+import com.example.securekeep.ui.components.PinInputField
+import com.example.securekeep.ui.components.PinVerificationState
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,9 +108,13 @@ fun NotesScreen(
     var selectedNote by remember { mutableStateOf<Note?>(null) }
     var showMenu by remember { mutableStateOf(false) }
     var showNotePinDialog by remember { mutableStateOf(false) }
+    var launchNoteBiometric by remember { mutableStateOf(false) }
+
     var notePinInput by remember { mutableStateOf("") }
     var notePinError by remember { mutableStateOf<String?>(null) }
-
+    var notePinVerificationState by remember {
+        mutableStateOf(PinVerificationState.NORMAL)
+    }
     var isUnlockingForToggle by remember { mutableStateOf(false) }
     var isUnlockingForRename by remember { mutableStateOf(false) }
 
@@ -115,6 +125,44 @@ fun NotesScreen(
     val filteredNotes = notes.filter {
         it.title.contains(searchQuery, ignoreCase = true) ||
                 it.content.contains(searchQuery, ignoreCase = true)
+    }
+
+    LaunchedEffect(showNotePinDialog, launchNoteBiometric) {
+        if (showNotePinDialog && launchNoteBiometric && useBiometricNote) {
+
+            // Wait until the PIN dialog has actually been composed.
+            withFrameNanos { }
+
+            launchNoteBiometric = false
+
+            authenticateNote(
+                context = context,
+                useBiometric = true,
+                onAuthenticated = {
+
+                    showNotePinDialog = false
+
+                    if (isUnlockingForToggle) {
+                        viewModel.toggleNoteLock(selectedNote!!)
+                    } else if (isUnlockingForRename) {
+                        showRenameDialog = true
+                    } else {
+                        onNoteClick(
+                            selectedNote!!.id,
+                            searchQuery
+                        )
+                    }
+
+                    notePinInput = ""
+                    notePinError = null
+                    notePinVerificationState =
+                        PinVerificationState.NORMAL
+                },
+                onPinRequired = {
+                    // PIN dialog is already visible.
+                }
+            )
+        }
     }
 
     ModalNavigationDrawer(
@@ -285,15 +333,14 @@ fun NotesScreen(
                                 note = note,
                                 onClick = {
                                     selectedNote = note
-                                    if (note.isLocked) {
+                                    if (note.isLocked && notePin != null) {
+
                                         isUnlockingForToggle = false
                                         isUnlockingForRename = false
-                                        authenticateNote(context, onAuthenticated = {
-                                            exitSearchMode()
-                                            onNoteClick(note.id, searchQuery)
-                                        }, onPinRequired = {
-                                            showNotePinDialog = true
-                                        })
+
+                                        showNotePinDialog = true
+                                        launchNoteBiometric = useBiometricNote
+
                                     } else {
                                         exitSearchMode()
                                         onNoteClick(note.id, searchQuery)
@@ -338,11 +385,9 @@ fun NotesScreen(
                                 } else {
                                     isUnlockingForToggle = true
                                     isUnlockingForRename = false
-                                    authenticateNote(context, onAuthenticated = {
-                                        viewModel.toggleNoteLock(selectedNote!!)
-                                    }, onPinRequired = {
-                                        showNotePinDialog = true
-                                    })
+
+                                    showNotePinDialog = true
+                                    launchNoteBiometric = useBiometricNote
                                 }
                             } else {
                                 if (notePin == null) {
@@ -364,11 +409,10 @@ fun NotesScreen(
                             onClick = {
                                 isUnlockingForRename = true
                                 isUnlockingForToggle = false
-                                authenticateNote(context, onAuthenticated = {
-                                    showRenameDialog = true
-                                }, onPinRequired = {
-                                    showNotePinDialog = true
-                                })
+
+                                showNotePinDialog = true
+                                launchNoteBiometric = useBiometricNote
+
                                 showMenu = false
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -418,39 +462,138 @@ fun NotesScreen(
                 showNotePinDialog = false
                 notePinInput = ""
                 notePinError = null
+                notePinVerificationState = PinVerificationState.NORMAL
             },
-            title = { Text("Enter 6-digit Note PIN") },
+            title = {
+                Text("Enter 6-digit Note PIN")
+            },
             text = {
-                Column {
-                    OutlinedTextField(
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+
+                    PinInputField(
                         value = notePinInput,
-                        onValueChange = { if (it.length <= 6 && it.all { char -> char.isDigit() }) notePinInput = it },
-                        label = { Text("PIN") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                        isError = notePinError != null
+                        onValueChange = {
+                            notePinInput = it
+                            notePinError = null
+
+                            if (notePinVerificationState == PinVerificationState.ERROR) {
+                                notePinVerificationState =
+                                    PinVerificationState.NORMAL
+                            }
+                        },
+                        onComplete = {
+
+                            if (notePinInput == notePin) {
+
+                                notePinVerificationState =
+                                    PinVerificationState.SUCCESS
+
+                            } else {
+
+                                notePinError = "Incorrect PIN"
+
+                                notePinVerificationState =
+                                    PinVerificationState.ERROR
+                            }
+                        },
+                        verificationState = notePinVerificationState,
+                        onSuccessAnimationFinished = {
+                            showNotePinDialog = false
+
+                            if (isUnlockingForToggle) {
+                                viewModel.toggleNoteLock(selectedNote!!)
+                            } else if (isUnlockingForRename) {
+                                showRenameDialog = true
+                            } else {
+                                onNoteClick(
+                                    selectedNote!!.id,
+                                    searchQuery
+                                )
+                            }
+
+                            notePinInput = ""
+                            notePinError = null
+                            notePinVerificationState =
+                                PinVerificationState.NORMAL
+                        },
+                        onErrorAnimationFinished = {
+                            notePinInput = ""
+                            notePinError = null
+                            notePinVerificationState =
+                                PinVerificationState.NORMAL
+                        }
                     )
-                    if (notePinError != null) Text(notePinError!!, color = MaterialTheme.colorScheme.error)
+
+                    if (notePinError != null) {
+                        Spacer(Modifier.height(8.dp))
+
+                        Text(
+                            text = notePinError!!,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    if (useBiometricNote) {
+                        Spacer(Modifier.height(16.dp))
+
+                        TextButton(
+                            onClick = {
+                                authenticateNote(
+                                    context = context,
+                                    useBiometric = true,
+                                    onAuthenticated = {
+                                        showNotePinDialog = false
+
+                                        if (isUnlockingForToggle) {
+                                            viewModel.toggleNoteLock(selectedNote!!)
+                                        } else if (isUnlockingForRename) {
+                                            showRenameDialog = true
+                                        } else {
+                                            onNoteClick(
+                                                selectedNote!!.id,
+                                                searchQuery
+                                            )
+                                        }
+
+                                        notePinInput = ""
+                                        notePinError = null
+                                        notePinVerificationState =
+                                            PinVerificationState.NORMAL
+                                    },
+                                    onPinRequired = {
+                                        // PIN dialog is already visible.
+                                    }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Fingerprint,
+                                contentDescription = null
+                            )
+
+                            Spacer(Modifier.width(8.dp))
+
+                            Text("Unlock with Biometrics")
+                        }
+                    }
                 }
             },
-            confirmButton = {
-                Button(onClick = {
-                    if (notePinInput == notePin) {
+            confirmButton = {},
+            dismissButton = {
+                TextButton(
+                    onClick = {
                         showNotePinDialog = false
-                        if (isUnlockingForToggle) {
-                            viewModel.toggleNoteLock(selectedNote!!)
-                        } else if (isUnlockingForRename) {
-                            showRenameDialog = true
-                        } else {
-                            onNoteClick(selectedNote!!.id, searchQuery)
-                        }
                         notePinInput = ""
                         notePinError = null
-                    } else {
-                        notePinError = "Incorrect PIN"
+                        notePinVerificationState =
+                            PinVerificationState.NORMAL
                     }
-                }) { Text("Unlock") }
+                ) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -458,9 +601,14 @@ fun NotesScreen(
 
 private fun authenticateNote(
     context: Context,
+    useBiometric: Boolean,
     onAuthenticated: () -> Unit,
     onPinRequired: () -> Unit
 ) {
+    if (!useBiometric) {
+        onPinRequired()
+        return
+    }
     val executor = ContextCompat.getMainExecutor(context)
     val biometricPrompt = BiometricPrompt(
         context as FragmentActivity,

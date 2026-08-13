@@ -50,6 +50,8 @@ import com.example.securekeep.ui.screens.SettingsScreen
 import com.example.securekeep.viewmodel.DriveAuthViewModel
 import com.example.securekeep.viewmodel.DriveSyncViewModel
 import com.example.securekeep.viewmodel.NotesViewModel
+import com.example.securekeep.ui.components.PinInputField
+import com.example.securekeep.ui.components.PinVerificationState
 
 sealed class Screen(val route: String) {
     object Notes : Screen("notes")
@@ -69,32 +71,156 @@ fun NavGraph(
     val appPin by viewModel.appPin.collectAsState()
     val useBiometricApp by viewModel.useBiometricApp.collectAsState()
     val context = LocalContext.current
+    val activity = context as FragmentActivity
+    val biometricExecutor = remember(context) {
+        ContextCompat.getMainExecutor(context)
+    }
+    var biometricSuccessAction by remember {
+        mutableStateOf<(() -> Unit)?>(null)
+    }
+
+    var biometricPinRequiredAction by remember {
+        mutableStateOf<(() -> Unit)?>(null)
+    }
+
+    val biometricPrompt = remember(activity, biometricExecutor) {
+
+        BiometricPrompt(
+            activity,
+            biometricExecutor,
+            object : BiometricPrompt.AuthenticationCallback() {
+
+                override fun onAuthenticationSucceeded(
+                    result: BiometricPrompt.AuthenticationResult
+                ) {
+                    super.onAuthenticationSucceeded(result)
+
+                    biometricSuccessAction?.invoke()
+
+                    biometricSuccessAction = null
+                    biometricPinRequiredAction = null
+                }
+
+                override fun onAuthenticationError(
+                    errorCode: Int,
+                    errString: CharSequence
+                ) {
+                    super.onAuthenticationError(
+                        errorCode,
+                        errString
+                    )
+
+                    biometricPinRequiredAction?.invoke()
+
+                    biometricSuccessAction = null
+                    biometricPinRequiredAction = null
+                }
+            }
+        )
+    }
+
+    fun launchBiometricAuthentication(
+        onAuthenticated: () -> Unit,
+        onPinRequired: () -> Unit
+    ) {
+        biometricSuccessAction = onAuthenticated
+        biometricPinRequiredAction = onPinRequired
+
+        biometricPrompt.authenticate(
+            BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Unlock Secure Keep")
+                .setSubtitle("Use biometrics to access your notes")
+                .setNegativeButtonText("Use PIN")
+                .build()
+        )
+    }
 
     var appPinInput by remember { mutableStateOf("") }
     var appPinError by remember { mutableStateOf<String?>(null) }
+    var appPinVerificationState by remember {
+        mutableStateOf(PinVerificationState.NORMAL)
+    }
+
+    var biometricPromptActive by remember {
+        mutableStateOf(false)
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    DisposableEffect(lifecycleOwner, isAppUnlocked, useBiometricApp, appPin) {
+    DisposableEffect(
+        lifecycleOwner,
+        isAppUnlocked,
+        useBiometricApp,
+        appPin
+    ) {
         val observer = LifecycleEventObserver { _, event ->
+
+            if (event == Lifecycle.Event.ON_STOP) {
+
+                /*
+                 * Do not lock the app because Android is temporarily
+                 * displaying our biometric prompt.
+                 */
+                if (!biometricPromptActive && isAppUnlocked) {
+
+                    viewModel.setAppUnlocked(false)
+
+                    appPinInput = ""
+                    appPinError = null
+                    appPinVerificationState =
+                        PinVerificationState.NORMAL
+                }
+            }
+
             if (event == Lifecycle.Event.ON_RESUME) {
+
                 if (appPin != "LOADING_PIN") {
-                    if (appPin != null && !isAppUnlocked) {
-                        if (useBiometricApp) {
-                            authenticateApp(context, onAuthenticated = {
-                                viewModel.setAppUnlocked(true)
-                            }, onPinRequired = {
-                                // Fallback is PIN dialog which is already visible
-                            })
-                        }
-                    } else if (appPin == null) {
+
+                    if (appPin == null) {
+
                         viewModel.setAppUnlocked(true)
+
+                    } else if (
+                        !isAppUnlocked &&
+                        !biometricPromptActive
+                    ) {
+
+                        if (useBiometricApp) {
+
+                            biometricPromptActive = true
+
+                            launchBiometricAuthentication(
+                                onAuthenticated = {
+
+                                    biometricPromptActive = false
+                                    viewModel.setAppUnlocked(true)
+                                },
+                                onPinRequired = {
+
+                                    biometricPromptActive = false
+                                    // PIN dialog remains visible.
+                                }
+                            )
+
+                        } else {
+
+                            /*
+                             * Biometrics are disabled.
+                             *
+                             * Do not launch anything.
+                             * The PIN dialog is already visible.
+                             */
+                        }
                     }
                 }
             }
         }
+
         lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
     }
 
     Surface(
@@ -107,52 +233,116 @@ fun NavGraph(
                     CircularProgressIndicator()
                 }
             }
-            !isAppUnlocked -> {
+            !isAppUnlocked && appPin != null -> {
                 AlertDialog(
                     onDismissRequest = { },
-                    title = { Text("App Locked") },
+                    title = {
+                        Text("App Locked")
+                    },
                     text = {
-                        Column {
-                            OutlinedTextField(
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+
+                            PinInputField(
                                 value = appPinInput,
-                                onValueChange = { if (it.length <= 6 && it.all { c -> c.isDigit() }) appPinInput = it },
-                                label = { Text("Enter 6-digit App PIN") },
-                                visualTransformation = PasswordVisualTransformation(),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                                modifier = Modifier.fillMaxWidth(),
-                                isError = appPinError != null
+                                onValueChange = {
+                                    appPinInput = it
+                                    appPinError = null
+
+                                    if (
+                                        appPinVerificationState ==
+                                        PinVerificationState.ERROR
+                                    ) {
+                                        appPinVerificationState =
+                                            PinVerificationState.NORMAL
+                                    }
+                                },
+                                verificationState = appPinVerificationState,
+                                onComplete = {
+
+                                    if (appPinInput == appPin) {
+
+                                        appPinVerificationState =
+                                            PinVerificationState.SUCCESS
+
+                                    } else {
+
+                                        appPinError = "Incorrect PIN"
+
+                                        appPinVerificationState =
+                                            PinVerificationState.ERROR
+                                    }
+                                },
+                                onSuccessAnimationFinished = {
+                                    viewModel.setAppUnlocked(true)
+
+                                    appPinInput = ""
+                                    appPinError = null
+                                    appPinVerificationState =
+                                        PinVerificationState.NORMAL
+                                },
+                                onErrorAnimationFinished = {
+                                    appPinInput = ""
+                                    appPinError = null
+                                    appPinVerificationState =
+                                        PinVerificationState.NORMAL
+                                }
                             )
-                            if (appPinError != null) Text(appPinError!!, color = MaterialTheme.colorScheme.error)
+
+                            if (appPinError != null) {
+                                Spacer(
+                                    modifier = Modifier.height(8.dp)
+                                )
+
+                                Text(
+                                    text = appPinError!!,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
 
                             if (useBiometricApp) {
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(
+                                    modifier = Modifier.height(16.dp)
+                                )
+
                                 TextButton(
                                     onClick = {
-                                        authenticateApp(context, onAuthenticated = {
-                                            viewModel.setAppUnlocked(true)
-                                        }, onPinRequired = {
-                                            // Handle required pin passively
-                                        })
+
+                                        if (!biometricPromptActive) {
+
+                                            biometricPromptActive = true
+
+                                            launchBiometricAuthentication(
+                                                onAuthenticated = {
+                                                    biometricPromptActive = false
+                                                    viewModel.setAppUnlocked(true)
+                                                },
+                                                onPinRequired = {
+                                                    biometricPromptActive = false
+                                                    // PIN dialog remains visible.
+                                                }
+                                            )
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(Icons.Default.Fingerprint, contentDescription = null)
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Icon(
+                                        Icons.Default.Fingerprint,
+                                        contentDescription = null
+                                    )
+
+                                    Spacer(
+                                        modifier = Modifier.width(8.dp)
+                                    )
+
                                     Text("Unlock with Biometrics")
                                 }
                             }
                         }
                     },
-                    confirmButton = {
-                        Button(onClick = {
-                            if (appPinInput == appPin) {
-                                viewModel.setAppUnlocked(true)
-                                appPinInput = "" // clear automatically
-                            } else {
-                                appPinError = "Incorrect PIN"
-                            }
-                        }) { Text("Unlock") }
-                    }
+                    confirmButton = {},
+                    dismissButton = {}
                 )
             }
             else -> {
@@ -225,32 +415,4 @@ fun NavGraph(
             }
         }
     }
-}
-
-private fun authenticateApp(
-    context: android.content.Context,
-    onAuthenticated: () -> Unit,
-    onPinRequired: () -> Unit
-) {
-    val executor = ContextCompat.getMainExecutor(context)
-    val biometricPrompt = BiometricPrompt(
-        context as FragmentActivity,
-        executor,
-        object : BiometricPrompt.AuthenticationCallback() {
-            override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                super.onAuthenticationSucceeded(result)
-                onAuthenticated()
-            }
-            override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                super.onAuthenticationError(errorCode, errString)
-                onPinRequired()
-            }
-        }
-    )
-    val promptInfo = BiometricPrompt.PromptInfo.Builder()
-        .setTitle("Unlock Secure Keep")
-        .setSubtitle("Use biometrics to access your notes")
-        .setNegativeButtonText("Use PIN")
-        .build()
-    biometricPrompt.authenticate(promptInfo)
 }

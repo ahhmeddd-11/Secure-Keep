@@ -134,6 +134,10 @@ class NotesViewModel(
         securityManager.clearNotePin()
     }
 
+    fun clearAppPin() = viewModelScope.launch {
+        securityManager.clearAppPin()
+    }
+
     fun toggleNoteLock(note: Note) = viewModelScope.launch {
         insert(note.copy(isLocked = !note.isLocked))
     }
